@@ -109,6 +109,8 @@ If there's a big error in the result, please refresh the page or specify a new C
                         print(f"\033[32m[+] {name.strip():<30}{domain.strip()}\033[0m")
                     finally:
                         self.lock.release()
+            else:
+                self.parseCookie()  # 刷新Cookie
             time.sleep(self.args.delay)
         except:
             time.sleep(self.args.delay)
