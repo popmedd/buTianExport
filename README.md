@@ -49,9 +49,9 @@ usage: buTianExport.py [-h] [-sid STARTID] [-eid ENDID] [-T THREAD]
 optional arguments:
   -h, --help            show this help message and exit
   -sid STARTID, --startID STARTID
-                        Number of thread, default is auto extract from site  起始页面ID，默认自动获取
+                        Start page ID, default is 1  开始页，默认1
   -eid ENDID, --endID ENDID
-                        Number of thread, default is auto extract from site  终止页面ID，默认自动获取
+                        End page ID, default is 185  终止页，默认185，一页有30个链接
   -T THREAD, --Thread THREAD
                         Number of thread, default is 32  线程，默认32
   -t TIMEOUT, --timeout TIMEOUT
