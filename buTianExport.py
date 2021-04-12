@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # @Author  : Cr4y0n
 # @Software: PyCharm
-# @Time    : 2021/4/10
+# @Time    : 2021/4/12
 # @Github  : https://github.com/Cr4y0nXX
 
 import os
@@ -14,14 +14,13 @@ from threading import Lock
 from bs4 import BeautifulSoup
 from argparse import ArgumentParser
 from getChromeCookie import getCookiesFromChrome
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
 
 class BuTianExport:
     def __init__(self):
         self.banner()
         self.args = self.parseArgs()
         self.parseCookie()
-        self.parseID()
         self.init()
         self.multiRun()
         self.start = time.time()
@@ -48,14 +47,14 @@ If there's a big error in the result, please refresh the page or specify a new C
         print("thread:", self.args.Thread)
         print("timeout:", self.args.timeout)
         print("delay:", self.args.delay)
-        print("targetCount:", len(self.idList))
+        print("targetCount:", str((self.args.endID - self.args.startID + 1) * 30))
         print("cookie:", self.cookie)
         print("-" * 20 + "\n")
 
     def parseArgs(self):
         parser = ArgumentParser()
-        parser.add_argument("-sid", "--startID", required=False, type=int, default=-1, help=f"Number of thread, default is auto extract from site")
-        parser.add_argument("-eid", "--endID", required=False, type=int, default=-1, help=f"Number of thread, default is auto extract from site")
+        parser.add_argument("-sid", "--startID", required=False, type=int, default=1, help=f"Start page ID, default is 1")
+        parser.add_argument("-eid", "--endID", required=False, type=int, default=185, help=f"End page ID, default is 185")
         parser.add_argument("-T", "--Thread", required=False, type=int, default=32, help=f"Number of thread, default is 32")
         parser.add_argument("-t", "--timeout", required=False, type=int, default=3,  help="Request timeout, default is 3 sec")
         parser.add_argument("-s", "--delay", required=False, type=int, default=0,  help="Delay between requests, default is 0 sec")
@@ -63,28 +62,28 @@ If there's a big error in the result, please refresh the page or specify a new C
         return parser.parse_args()
 
     # 获取页面参数ID
-    def getID(self):
-        print("Collecting page ID, please waiting……")
-        idList = []
-        for pID in range(1, 11):
-            data = {"s": 1, "p": {int(pID)}, "token": ""}
-            reqURL = f"https://www.butian.net/Reward/pub"
-            header = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.114 Safari/537.36",
-                "Cookie": self.cookie,
-                "Host": "www.butian.net",
-                "Origin": "https://www.butian.net",
-                "Referer": "https://www.butian.net/Reward/pub",
-            }
-            try:
-                rep = requests.post(url=reqURL, headers=header, data=data, timeout=self.args.timeout)
-                repJson = json.loads(rep.text)
-                # 获取请求ID
-                for i in range(len(repJson["data"]["list"])):
-                    idList.append(repJson["data"]["list"][i]["company_id"])
-            except:
-                continue
-        return idList
+    def getPageID(self, postReqID):
+        data = {"s": 1, "p": {int(postReqID)}, "token": ""}
+        reqURL = f"https://www.butian.net/Reward/pub"
+        header = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.114 Safari/537.36",
+            "Cookie": self.cookie,
+            "Host": "www.butian.net",
+            "Origin": "https://www.butian.net",
+            "Referer": "https://www.butian.net/Reward/pub",
+        }
+        try:
+            rep = requests.post(url=reqURL, headers=header, data=data, timeout=self.args.timeout)
+            repJson = json.loads(rep.text)
+            # 获取请求ID
+            for i in range(len(repJson["data"]["list"])):
+                self.lock.acquire()
+                try:
+                    self.dataIDList.append(repJson["data"]["list"][i]["company_id"])
+                finally:
+                    self.lock.release()
+        except:
+            pass
 
     # 获取name和domain
     def getNameAndDomain(self, id):
@@ -115,13 +114,6 @@ If there's a big error in the result, please refresh the page or specify a new C
             time.sleep(self.args.delay)
             return
 
-    # 解析ID
-    def parseID(self):
-        if self.args.startID == -1 or self.args.endID == -1:
-            self.idList = self.getID()
-        else:
-            self.idList = [str(i) for i in range(int(self.args.startID), int(self.args.endID) + 1)]
-
     # 解析cookie
     def parseCookie(self):
         self.cookie = ""
@@ -134,11 +126,17 @@ If there's a big error in the result, please refresh the page or specify a new C
 
     # 多线程运行
     def multiRun(self):
-        # self.parseID()
+        self.pageIDList = [str(i) for i in range(int(self.args.startID), int(self.args.endID) + 1)]
+        self.dataIDList = []
         self.resultList = []
         self.lock = Lock()
         executor = ThreadPoolExecutor(max_workers=self.args.Thread)
-        executor.map(self.getNameAndDomain, self.idList)
+        print("Collecting page data ID, please waiting……")
+        all = [executor.submit(self.getPageID, (pageID)) for pageID in self.pageIDList]
+        wait(all)
+        all = [executor.submit(self.getNameAndDomain, (dataID)) for dataID in self.dataIDList]
+        # executor.map(self.getNameAndDomain, self.dataIDList)
+        wait(all)
 
     # 输出到文件
     def output(self):
@@ -164,5 +162,4 @@ If there's a big error in the result, please refresh the page or specify a new C
 
 if __name__ == "__main__":
     BuTianExport()
-
 
